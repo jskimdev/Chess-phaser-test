@@ -1,145 +1,163 @@
 <script lang="ts">
+    import type { Scene } from 'phaser';
+    import PhaserGame, { type TPhaserRef } from '../PhaserGame.svelte';
+    import { EventBus } from '../game/EventBus';
 
-    import type { Scene } from "phaser";
-    import type { MainMenu } from "../game/scenes/MainMenu";
-    import PhaserGame, { type TPhaserRef } from "../PhaserGame.svelte";
+    type BoardMode = 'desktop' | 'mobile';
 
-    // The sprite can only be moved in the MainMenu Scene
-    let canMoveSprite = false;
+    let phaserRef: TPhaserRef = { game: null, scene: null };
+    let boardMode: BoardMode = 'desktop';
 
-    //  References to the PhaserGame component (game and scene are exposed)
-    let phaserRef: TPhaserRef = { game: null, scene: null};
-    const spritePosition = { x: 0, y: 0 };
+    const toggleBoardMode = () => {
+        boardMode = boardMode === 'desktop' ? 'mobile' : 'desktop';
+        EventBus.emit('board-size-mode', boardMode);
+    };
 
-    const changeScene = () => {
-
-        const scene = phaserRef.scene as MainMenu;
-
-        if (scene)
-        {
-
-            // Call the changeScene method defined in the `MainMenu`, `Game` and `GameOver` Scenes
-            scene.changeScene();
-
-        }
-
-    }
-    
-    const moveSprite = () => {
-
-        const scene = phaserRef.scene as MainMenu;
-
-        if (scene)
-        {
-
-            // Get the update logo position
-            (scene as MainMenu).moveLogo(({ x, y }) => {
-
-                spritePosition.x = x;
-                spritePosition.y = y;
-
-            });
-
-        }
-
-    }
-
-    const addSprite = () => {
-
-        const scene = phaserRef.scene as Scene;
-
-        if (scene)
-        {
-
-            // Add more stars
-            const x = Phaser.Math.Between(64, scene.scale.width - 64);
-            const y = Phaser.Math.Between(64, scene.scale.height - 64);
-
-            //  `add.sprite` is a Phaser GameObjectFactory method and it returns a Sprite Game Object instance
-            const star = scene.add.sprite(x, y, 'star');
-
-            //  ... which you can then act upon. Here we create a Phaser Tween to fade the star sprite in and out.
-            //  You could, of course, do this from within the Phaser Scene code, but this is just an example
-            //  showing that Phaser objects and systems can be acted upon from outside of Phaser itself.
-            scene.add.tween({
-                targets: star,
-                duration: 500 + Math.random() * 1000,
-                alpha: 0,
-                yoyo: true,
-                repeat: -1
-            });
-            
-        }
-
-    }
-
-    // Event emitted from the PhaserGame component
-    const currentScene = (scene: Scene) => {
-
-        canMoveSprite = (scene.scene.key !== "MainMenu");
-
-    }
-    
+    const onCurrentActiveScene = (_scene: Scene) => {
+        EventBus.emit('board-size-mode', boardMode);
+    };
 </script>
 
-<div id="app">
-    <PhaserGame bind:phaserRef={phaserRef} currentActiveScene={currentScene} />
-    <div>
-        <div>
-            <button class="button" on:click={changeScene}>Change Scene</button>
+<main class="page">
+    <section class="panel">
+        <header class="header">
+            <div>
+                <h1>Phaser Chess</h1>
+                <p>Responsive chess board with handcrafted 32x32 piece textures.</p>
+            </div>
+
+            <div class="actions">
+                <span class="mode-badge {boardMode}">{boardMode === 'desktop' ? 'Desktop View' : 'Mobile View'}</span>
+                <button class="toggle-button" on:click={toggleBoardMode}>
+                    Switch to {boardMode === 'desktop' ? 'Mobile' : 'Desktop'}
+                </button>
+            </div>
+        </header>
+
+        <div class="stage-shell {boardMode}">
+            <PhaserGame bind:phaserRef={phaserRef} currentActiveScene={onCurrentActiveScene} />
         </div>
-        <div>
-            <button class="button" disabled={canMoveSprite} on:click={moveSprite}>Toggle Movement</button>
-        </div>
-        <div class="spritePosition">
-            Sprite Position:
-            <pre>{JSON.stringify(spritePosition, null, 2)}</pre>
-        </div>
-        <div>
-            <button class="button" on:click={addSprite}>Add New Sprite</button>
-        </div>
-    </div>
-</div>
+    </section>
+</main>
 
 <style>
-    #app {
-        width: 100%;
-        height: 100vh;
-        overflow: hidden;
+    .page {
+        min-height: 100vh;
         display: flex;
         justify-content: center;
         align-items: center;
-    }
-    
-    .spritePosition {
-        margin: 10px 0 0 10px;
-        font-size: 0.8em;
+        padding: 24px 16px;
+        box-sizing: border-box;
     }
 
-    .button {
-        width: 140px;
-        margin: 10px;
-        padding: 10px;
-        background-color: #000000;
-        color: rgba(255, 255, 255, 0.87);
-        border: 1px solid rgba(255, 255, 255, 0.87);
+    .panel {
+        width: min(1100px, 100%);
+        background:
+            radial-gradient(circle at 14% 15%, rgba(216, 180, 119, 0.18), transparent 34%),
+            radial-gradient(circle at 88% 80%, rgba(108, 150, 197, 0.2), transparent 38%),
+            linear-gradient(135deg, rgba(20, 33, 55, 0.88), rgba(40, 22, 13, 0.9));
+        border: 1px solid rgba(238, 211, 167, 0.2);
+        border-radius: 22px;
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+    }
+
+    .header h1 {
+        margin: 0;
+        color: #f5e2bf;
+        letter-spacing: 0.04em;
+        font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+        font-size: clamp(1.6rem, 3vw, 2.4rem);
+    }
+
+    .header p {
+        margin: 6px 0 0;
+        color: #e2cda5;
+        font-size: 0.95rem;
+        font-family: 'Trebuchet MS', 'Lucida Sans Unicode', sans-serif;
+    }
+
+    .actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .mode-badge {
+        border-radius: 999px;
+        padding: 6px 11px;
+        font-family: 'Trebuchet MS', 'Lucida Sans Unicode', sans-serif;
+        font-size: 0.8rem;
+        letter-spacing: 0.03em;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff2d8;
+        background: rgba(97, 63, 33, 0.55);
+    }
+
+    .mode-badge.mobile {
+        background: rgba(34, 70, 112, 0.6);
+    }
+
+    .toggle-button {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: linear-gradient(130deg, #3d290f, #1e304a);
+        color: #f5e2bf;
         cursor: pointer;
-        transition: all 0.3s;
+        padding: 10px 14px;
+        font-family: 'Trebuchet MS', 'Lucida Sans Unicode', sans-serif;
+        font-weight: 600;
+        transition: transform 0.2s ease, filter 0.2s ease;
+    }
 
-        &:hover {
-            border: 1px solid #0ec3c9;
-            color: #0ec3c9;
+    .toggle-button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.1);
+    }
+
+    .stage-shell {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid rgba(232, 214, 185, 0.2);
+        background: rgba(10, 12, 18, 0.6);
+        width: min(100%, 1024px);
+        height: min(76vh, 760px);
+        transition: width 0.25s ease;
+    }
+
+    .stage-shell.mobile {
+        width: min(100%, 540px);
+    }
+
+    @media (max-width: 760px) {
+        .page {
+            padding: 14px;
+            align-items: stretch;
         }
 
-        &:active {
-            background-color: #0ec3c9;
+        .panel {
+            border-radius: 14px;
+            padding: 12px;
         }
 
-        /* Disabled styles */
-        &:disabled {
-            cursor: not-allowed;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: rgba(255, 255, 255, 0.3);
+        .header {
+            margin-bottom: 12px;
+        }
+
+        .stage-shell {
+            height: min(72vh, 680px);
         }
     }
 </style>

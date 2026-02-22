@@ -44,3 +44,10 @@
 </script>
 
 <div id="game-container"></div>
+
+<style>
+    #game-container {
+        width: 100%;
+        height: 100%;
+    }
+</style>

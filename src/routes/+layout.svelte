@@ -1,16 +1,22 @@
 <svelte:head>
-    <title>Phaser Svelte Template</title>
+    <title>Phaser Chess</title>
 </svelte:head>
 
 <slot />
 
 <style>
     :global(body) {
-        background-color: #0cc9bd;
         margin: 0;
         padding: 0;
-        color: rgba(255, 255, 255, 0.87);
-        background-color: #000000;
-        font-family: Arial, Helvetica, sans-serif;
+        color: rgba(255, 255, 255, 0.9);
+        background:
+            radial-gradient(circle at 20% 20%, #193154 0%, transparent 42%),
+            radial-gradient(circle at 80% 72%, #3a2311 0%, transparent 45%),
+            #0d1524;
+        font-family: 'Trebuchet MS', 'Lucida Sans Unicode', sans-serif;
+    }
+
+    :global(*) {
+        box-sizing: border-box;
     }
 </style>
