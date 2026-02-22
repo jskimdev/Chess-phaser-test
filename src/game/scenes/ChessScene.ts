@@ -180,6 +180,7 @@ export class ChessScene extends Scene
     private highlightGraphics!: GameObjects.Graphics;
     private piecesLayer!: GameObjects.Container;
     private labelsLayer!: GameObjects.Container;
+    private combatInfoLayer!: GameObjects.Container;
     private statusText!: GameObjects.Text;
     private helperText!: GameObjects.Text;
 
@@ -225,6 +226,7 @@ export class ChessScene extends Scene
         this.highlightGraphics = this.add.graphics().setDepth(3);
         this.piecesLayer = this.add.container(0, 0).setDepth(4);
         this.labelsLayer = this.add.container(0, 0).setDepth(2);
+        this.combatInfoLayer = this.add.container(0, 0).setDepth(8);
 
         this.statusText = this.add.text(0, 18, '', {
             fontFamily: '"Palatino Linotype", "Book Antiqua", Palatino, serif',
@@ -354,6 +356,13 @@ export class ChessScene extends Scene
     private drawHighlights ()
     {
         this.highlightGraphics.clear();
+        this.combatInfoLayer.removeAll(true);
+
+        const selectedPiece = this.selected ? this.board[this.selected.row][this.selected.col] : null;
+        if (selectedPiece && this.selected)
+        {
+            this.drawSelectedPieceOverlay(this.selected, selectedPiece);
+        }
 
         if (this.selected)
         {
@@ -387,6 +396,44 @@ export class ChessScene extends Scene
                 this.highlightGraphics.fillStyle(0x2fcb78, 0.52);
                 this.highlightGraphics.fillCircle(cx, cy, Math.max(4, Math.floor(this.cellSize * 0.12)));
             }
+
+            if (!selectedPiece)
+            {
+                continue;
+            }
+
+            const defenderSquare = this.getDefenderSquareForMove(this.board, move, selectedPiece);
+            if (!defenderSquare)
+            {
+                continue;
+            }
+
+            const defender = this.board[defenderSquare.row][defenderSquare.col];
+            if (!defender || defender.color === selectedPiece.color)
+            {
+                continue;
+            }
+
+            const damage = this.getPieceDamage(selectedPiece.type);
+            const nextHp = Math.max(0, defender.hp - damage);
+            const label = nextHp === 0
+                ? `-${damage} KO`
+                : `-${damage} HP ${defender.hp}\u2192${nextHp}`;
+
+            const labelText = this.add.text(
+                cx,
+                this.boardY + move.row * this.cellSize + Math.max(3, Math.floor(this.cellSize * 0.06)),
+                label,
+                {
+                    fontFamily: '"Trebuchet MS", "Lucida Sans Unicode", sans-serif',
+                    fontSize: `${Math.max(9, Math.floor(this.cellSize * 0.16))}px`,
+                    color: '#ffe9e9',
+                    stroke: '#6b1919',
+                    strokeThickness: 2
+                }
+            ).setOrigin(0.5, 0).setDepth(8);
+
+            this.combatInfoLayer.add(labelText);
         }
 
         if (this.gameState === 'active')
@@ -481,7 +528,7 @@ export class ChessScene extends Scene
             this.statusText.setText(`${currentTurn} to move`);
         }
 
-        this.helperText.setText(`Pieces have HP and deal damage on attack \u2022 ${modeLabel} \u2022 32x32 textures`);
+        this.helperText.setText(`Select a piece to see HP + damage overlays \u2022 ${modeLabel} \u2022 32x32 textures`);
     }
 
     private onPointerDown (pointer: Input.Pointer)
@@ -1158,6 +1205,69 @@ export class ChessScene extends Scene
     private getPieceDamage (type: PieceType): number
     {
         return PIECE_DAMAGE[type];
+    }
+
+    private getPieceLabel (type: PieceType): string
+    {
+        const labels: Record<PieceType, string> = {
+            p: 'Pawn',
+            n: 'Knight',
+            b: 'Bishop',
+            r: 'Rook',
+            q: 'Queen',
+            k: 'King'
+        };
+
+        return labels[type];
+    }
+
+    private drawSelectedPieceOverlay (square: Square, piece: Piece)
+    {
+        const center = this.getSquareCenter(square.row, square.col);
+        const colorLabel = piece.color === 'w' ? 'White' : 'Black';
+        const pieceLabel = this.getPieceLabel(piece.type);
+        const statsLabel = `${colorLabel} ${pieceLabel}  HP ${piece.hp}/${piece.maxHp}  DMG ${this.getPieceDamage(piece.type)}`;
+        const fontSize = Math.max(10, Math.floor(this.cellSize * 0.18));
+        const paddingX = Math.max(8, Math.floor(this.cellSize * 0.16));
+        const paddingY = Math.max(5, Math.floor(this.cellSize * 0.1));
+
+        const text = this.add.text(0, 0, statsLabel, {
+            fontFamily: '"Trebuchet MS", "Lucida Sans Unicode", sans-serif',
+            fontSize: `${fontSize}px`,
+            color: '#f8e7c7'
+        }).setDepth(9);
+
+        const textWidth = text.width;
+        const textHeight = text.height;
+        const boxWidth = textWidth + paddingX * 2;
+        const boxHeight = textHeight + paddingY * 2;
+        const overlayGap = Math.max(12, Math.floor(this.cellSize * 0.24));
+
+        const wantsAbove = square.row > 1;
+        let overlayX = center.x;
+        let overlayY = wantsAbove
+            ? center.y - overlayGap - boxHeight * 0.5
+            : center.y + overlayGap + boxHeight * 0.5;
+
+        const clampMinX = this.boardX + boxWidth * 0.5 + 4;
+        const clampMaxX = this.boardX + this.boardSize - boxWidth * 0.5 - 4;
+        const clampMinY = this.boardY + boxHeight * 0.5 + 4;
+        const clampMaxY = this.boardY + this.boardSize - boxHeight * 0.5 - 4;
+
+        overlayX = Math.max(clampMinX, Math.min(clampMaxX, overlayX));
+        overlayY = Math.max(clampMinY, Math.min(clampMaxY, overlayY));
+
+        const bgColor = piece.color === 'w' ? 0x2f2418 : 0x18243a;
+        const borderColor = piece.color === 'w' ? 0xf3ddb5 : 0xc8dcff;
+
+        const bubble = this.add.rectangle(overlayX, overlayY, boxWidth, boxHeight, bgColor, 0.88)
+            .setStrokeStyle(1.5, borderColor, 0.9)
+            .setDepth(8.5);
+
+        text.setPosition(overlayX - textWidth * 0.5, overlayY - textHeight * 0.5);
+
+        this.combatInfoLayer.add(bubble);
+        this.combatInfoLayer.add(text);
     }
 
     private getSquareCenter (row: number, col: number): { x: number; y: number }
